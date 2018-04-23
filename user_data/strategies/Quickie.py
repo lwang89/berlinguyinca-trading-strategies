@@ -10,33 +10,37 @@ import talib.abstract as ta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 
-class AverageStrategy(IStrategy):
+class Quickie(IStrategy):
     """
 
     author@: Gert Wohlgemuth
 
     idea:
-        buys and sells on crossovers - doesn't really perfom that well and its just a proof of concept
+        momentum based strategie. The main idea is that it closes trades very quickly, while avoiding excessive losses. Hence a rather moderate stop loss in this case
     """
 
     # Minimal ROI designed for the strategy.
     # This attribute will be overridden if the config file contains "minimal_roi"
     minimal_roi = {
-        "0": 0.5
+        "0": 0.01
     }
 
     # Optimal stoploss designed for the strategy
     # This attribute will be overridden if the config file contains "stoploss"
-    stoploss = -0.2
+    stoploss = -0.25
 
     # Optimal ticker interval for the strategy
     ticker_interval = 1
 
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
-        macd = ta.MACD(dataframe)
+        #our main deciding force
+        dataframe['willr'] = ta.WILLR(dataframe)
 
-        dataframe['maShort'] = ta.EMA(dataframe, timeperiod=8)
-        dataframe['maMedium'] = ta.EMA(dataframe, timeperiod=21)
+        #some basic insurance
+        macd = ta.MACD(dataframe)
+        dataframe['macd'] = macd['macd']
+        dataframe['macdsignal'] = macd['macdsignal']
+        dataframe['macdhist'] = macd['macdhist']
 
         return dataframe
 
@@ -48,8 +52,14 @@ class AverageStrategy(IStrategy):
         """
         dataframe.loc[
             (
-                qtpylib.crossed_above(dataframe['maShort'], dataframe['maMedium'])
-            ),
+                (
+                        dataframe['willr'] < -80  #
+                ) &
+                (
+                        dataframe['macd'] > dataframe['macdsignal']
+                )
+            )
+            ,
             'buy'] = 1
 
         return dataframe
@@ -62,7 +72,7 @@ class AverageStrategy(IStrategy):
         """
         dataframe.loc[
             (
-                qtpylib.crossed_above(dataframe['maMedium'], dataframe['maShort'])
+                    dataframe['willr'] > -20
             ),
             'sell'] = 1
         return dataframe
