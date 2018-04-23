@@ -16,17 +16,16 @@ class AverageStrategy(IStrategy):
     author@: Gert Wohlgemuth
 
     idea:
+       defines a strategy which is based on the idea on the idea to have as many small trades as possible,
+        while never holding assets for a long time.
 
-        defines a strategy whihc is based on the idea o
+        So basically quick in and quick out, while doing a lot of trades. We never expext more than 1% profit on a trade.
     """
 
     # Minimal ROI designed for the strategy.
     # This attribute will be overridden if the config file contains "minimal_roi"
     minimal_roi = {
-        "60": 0.01,
-        "30": 0.03,
-        "20": 0.04,
-        "0": 0.05
+        "0": 0.01
     }
 
     # Optimal stoploss designed for the strategy
@@ -40,9 +39,9 @@ class AverageStrategy(IStrategy):
         macd = ta.MACD(dataframe)
 
         dataframe['cci'] = ta.CCI(dataframe)
-        dataframe['sma25'] = ta.SMA(dataframe, timeperiod=25)
-        dataframe['sma50'] = ta.SMA(dataframe, timeperiod=50)
-        dataframe['sma100'] = ta.SMA(dataframe, timeperiod=100)
+        dataframe['maShort'] = ta.EMA(dataframe, timeperiod=25)
+        dataframe['maMedium'] = ta.EMA(dataframe, timeperiod=50)
+        dataframe['maLong'] = ta.EMA(dataframe, timeperiod=100)
 
         dataframe['macd'] = macd['macd']
         dataframe['macdsignal'] = macd['macdsignal']
@@ -60,18 +59,19 @@ class AverageStrategy(IStrategy):
             (
                     (
                             (
-                                    (dataframe['close'] > dataframe['sma25']) &
-                                    (dataframe['sma25'] > dataframe['sma50']) &
-                                    (dataframe['sma50'] > dataframe['sma100'])
+                                    (dataframe['close'] > dataframe['maShort']) &
+                                    (dataframe['maShort'] > dataframe['maMedium']) &
+                                    (dataframe['maMedium'] > dataframe['maLong'])
                             ) &
+
                             (dataframe['macd'] > dataframe['macdsignal'])
                     ) |
                     (
                         # try ti catch oversold market conditions
                             (
-                                    (dataframe['close'] < dataframe['sma25']) &
-                                    (dataframe['sma25'] < dataframe['sma50']) &
-                                    (dataframe['sma50'] < dataframe['sma100'])
+                                    (dataframe['close'] < dataframe['maShort']) &
+                                    (dataframe['maShort'] < dataframe['maMedium']) &
+                                    (dataframe['maMedium'] < dataframe['maLong'])
                             ) &
                             (dataframe['macd'] > dataframe['macdsignal'])
                     )
