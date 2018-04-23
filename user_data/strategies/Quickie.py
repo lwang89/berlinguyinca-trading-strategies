@@ -22,7 +22,7 @@ class Quickie(IStrategy):
     # Minimal ROI designed for the strategy.
     # This attribute will be overridden if the config file contains "minimal_roi"
     minimal_roi = {
-        "0": 0.01
+        "0":  0.01
     }
 
     # Optimal stoploss designed for the strategy
@@ -53,7 +53,7 @@ class Quickie(IStrategy):
         dataframe.loc[
             (
                 (
-                        dataframe['willr'] < -80  #
+                        dataframe['willr'] < -80
                 ) &
                 (
                         dataframe['macd'] > dataframe['macdsignal']
