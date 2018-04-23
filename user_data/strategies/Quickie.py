@@ -36,12 +36,6 @@ class Quickie(IStrategy):
         #our main deciding force
         dataframe['willr'] = ta.WILLR(dataframe)
 
-        #some basic insurance
-        macd = ta.MACD(dataframe)
-        dataframe['macd'] = macd['macd']
-        dataframe['macdsignal'] = macd['macdsignal']
-        dataframe['macdhist'] = macd['macdhist']
-
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame) -> DataFrame:
@@ -54,9 +48,6 @@ class Quickie(IStrategy):
             (
                 (
                         dataframe['willr'] < -80
-                ) &
-                (
-                        dataframe['macd'] > dataframe['macdsignal']
                 )
             )
             ,
