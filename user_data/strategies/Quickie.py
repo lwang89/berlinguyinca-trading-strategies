@@ -22,7 +22,9 @@ class Quickie(IStrategy):
     # Minimal ROI designed for the strategy.
     # This attribute will be overridden if the config file contains "minimal_roi"
     minimal_roi = {
-        "0":  0.01
+        "100": 0.01,
+        "15": 0.06,
+        "10": 0.15,
     }
 
     # Optimal stoploss designed for the strategy
@@ -30,40 +32,46 @@ class Quickie(IStrategy):
     stoploss = -0.25
 
     # Optimal ticker interval for the strategy
-    ticker_interval = 1
+    ticker_interval = 5
 
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
-        #our main deciding force
-        dataframe['willr'] = ta.WILLR(dataframe)
+        macd = ta.MACD(dataframe)
+        dataframe['macd'] = macd['macd']
+        dataframe['macdsignal'] = macd['macdsignal']
+        dataframe['macdhist'] = macd['macdhist']
+
+        dataframe['tema'] = ta.TEMA(dataframe, timeperiod=9)
+        dataframe['sma_200'] = ta.SMA(dataframe, timeperiod=200)
+        dataframe['sma_50'] = ta.SMA(dataframe, timeperiod=200)
+
+        dataframe['adx'] = ta.ADX(dataframe)
+
+        # required for graphing
+        bollinger = qtpylib.bollinger_bands(dataframe['close'], window=20, stds=2)
+        dataframe['bb_lowerband'] = bollinger['lower']
+        dataframe['bb_middleband'] = bollinger['mid']
+        dataframe['bb_upperband'] = bollinger['upper']
 
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame) -> DataFrame:
-        """
-        Based on TA indicators, populates the buy signal for the given dataframe
-        :param dataframe: DataFrame
-        :return: DataFrame with buy column
-        """
         dataframe.loc[
             (
-                (
-                        dataframe['willr'] < -80
-                )
-            )
-            ,
-            'buy'] = 1
+                    (dataframe['adx'] > 30) &
+                    (dataframe['tema'] < dataframe['bb_middleband']) &
+                    (dataframe['tema'] > dataframe['tema'].shift(1)) &
+                    (dataframe['sma_200'] > dataframe['close'])
 
+            ),
+            'buy'] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame) -> DataFrame:
-        """
-        Based on TA indicators, populates the sell signal for the given dataframe
-        :param dataframe: DataFrame
-        :return: DataFrame with buy column
-        """
         dataframe.loc[
             (
-                    dataframe['willr'] > -20
+                    (dataframe['adx'] > 70) &
+                    (dataframe['tema'] > dataframe['bb_middleband']) &
+                    (dataframe['tema'] < dataframe['tema'].shift(1))
             ),
             'sell'] = 1
         return dataframe
