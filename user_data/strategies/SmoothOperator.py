@@ -10,6 +10,7 @@ import talib.abstract as ta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy  # noqa
 
+# DO NOT USE, just playing with smooting and graphs!
 
 class SmoothOperator(IStrategy):
     """
