@@ -44,7 +44,7 @@ class SmoothOperator(IStrategy):
 
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
         # resampled dataframe to establish if we are in an uptrend, downtrend or sideways trend
-        dataframe = SmoothOperator.resample(dataframe, self.ticker_interval, self.resample_factor)
+        dataframe = StrategyHelper.resample(dataframe, self.ticker_interval, self.resample_factor)
 
         ##################################################################################
         # required for entry and exit
@@ -217,6 +217,105 @@ class SmoothOperator(IStrategy):
         return dataframe
 
 
+class StrategyHelper:
+    """
+        simple helper class to predefine a couple of patterns for our
+        strategy
+    """
+
+    @staticmethod
+    def seven_green_candles(dataframe):
+        """
+            evaluates if we are having 7 green candles in a row
+        :param self:
+        :param dataframe:
+        :return:
+        """
+        return (
+                (dataframe['open'] < dataframe['close']) &
+                (dataframe['open'].shift(1) < dataframe['close'].shift(1)) &
+                (dataframe['open'].shift(2) < dataframe['close'].shift(2)) &
+                (dataframe['open'].shift(3) < dataframe['close'].shift(3)) &
+                (dataframe['open'].shift(4) < dataframe['close'].shift(4)) &
+                (dataframe['open'].shift(5) < dataframe['close'].shift(5)) &
+                (dataframe['open'].shift(6) < dataframe['close'].shift(6)) &
+                (dataframe['open'].shift(7) < dataframe['close'].shift(7))
+        )
+
+    @staticmethod
+    def eight_green_candles(dataframe):
+        """
+            evaluates if we are having 8 green candles in a row
+        :param self:
+        :param dataframe:
+        :return:
+        """
+        return (
+                (dataframe['open'] < dataframe['close']) &
+                (dataframe['open'].shift(1) < dataframe['close'].shift(1)) &
+                (dataframe['open'].shift(2) < dataframe['close'].shift(2)) &
+                (dataframe['open'].shift(3) < dataframe['close'].shift(3)) &
+                (dataframe['open'].shift(4) < dataframe['close'].shift(4)) &
+                (dataframe['open'].shift(5) < dataframe['close'].shift(5)) &
+                (dataframe['open'].shift(6) < dataframe['close'].shift(6)) &
+                (dataframe['open'].shift(7) < dataframe['close'].shift(7)) &
+                (dataframe['open'].shift(8) < dataframe['close'].shift(8))
+        )
+
+    @staticmethod
+    def eight_red_candles(dataframe, shift=0):
+        """
+            evaluates if we are having 8 red candles in a row
+        :param self:
+        :param dataframe:
+        :param shift: shift the pattern by n
+        :return:
+        """
+        return (
+                (dataframe['open'].shift(shift) > dataframe['close'].shift(shift)) &
+                (dataframe['open'].shift(1 + shift) > dataframe['close'].shift(1 + shift)) &
+                (dataframe['open'].shift(2 + shift) > dataframe['close'].shift(2 + shift)) &
+                (dataframe['open'].shift(3 + shift) > dataframe['close'].shift(3 + shift)) &
+                (dataframe['open'].shift(4 + shift) > dataframe['close'].shift(4 + shift)) &
+                (dataframe['open'].shift(5 + shift) > dataframe['close'].shift(5 + shift)) &
+                (dataframe['open'].shift(6 + shift) > dataframe['close'].shift(6 + shift)) &
+                (dataframe['open'].shift(7 + shift) > dataframe['close'].shift(7 + shift)) &
+                (dataframe['open'].shift(8 + shift) > dataframe['close'].shift(8 + shift))
+        )
+
+    @staticmethod
+    def four_green_one_red_candle(dataframe):
+        """
+            evaluates if we are having a red candle and 4 previous green
+        :param self:
+        :param dataframe:
+        :return:
+        """
+        return (
+                (dataframe['open'] > dataframe['close']) &
+                (dataframe['open'].shift(1) < dataframe['close'].shift(1)) &
+                (dataframe['open'].shift(2) < dataframe['close'].shift(2)) &
+                (dataframe['open'].shift(3) < dataframe['close'].shift(3)) &
+                (dataframe['open'].shift(4) < dataframe['close'].shift(4))
+        )
+
+    @staticmethod
+    def four_red_one_green_candle(dataframe):
+        """
+            evaluates if we are having a green candle and 4 previous red
+        :param self:
+        :param dataframe:
+        :return:
+        """
+        return (
+                (dataframe['open'] < dataframe['close']) &
+                (dataframe['open'].shift(1) > dataframe['close'].shift(1)) &
+                (dataframe['open'].shift(2) > dataframe['close'].shift(2)) &
+                (dataframe['open'].shift(3) > dataframe['close'].shift(3)) &
+                (dataframe['open'].shift(4) > dataframe['close'].shift(4))
+        )
+
+
     @staticmethod
     def resample( dataframe, interval, factor):
         # defines the reinforcement logic
@@ -229,8 +328,8 @@ class SmoothOperator(IStrategy):
             'low': 'min',
             'close': 'last'
         }
-        df = df.resample(str(int(interval[:-1]) * factor) + 'min', how=ohlc_dict).dropna(
-            how='any')
+        df = df.resample(str(int(interval[:-1]) * factor) + 'min', how=ohlc_dict)
+
         df['resample_sma'] = ta.SMA(df, timeperiod=25, price='close')
         df = df.drop(columns=['open', 'high', 'low', 'close'])
         df = df.resample(interval[:-1] + 'min')

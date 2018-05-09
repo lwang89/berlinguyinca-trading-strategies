@@ -30,7 +30,7 @@ class AverageStrategy(IStrategy):
     stoploss = -0.2
 
     # Optimal ticker interval for the strategy
-    ticker_interval = 1
+    ticker_interval = '5m'
 
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
         macd = ta.MACD(dataframe)
