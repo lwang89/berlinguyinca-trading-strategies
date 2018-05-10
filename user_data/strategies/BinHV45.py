@@ -1,145 +1,56 @@
+# --- Do not remove these libs ---
 from freqtrade.strategy.interface import IStrategy
 from typing import Dict, List
 from hyperopt import hp
 from functools import reduce
 from pandas import DataFrame
+import numpy as np
 # --------------------------------
 
 import talib.abstract as ta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
-from typing import Dict, List
-from hyperopt import hp
-from functools import reduce
-from pandas import DataFrame, DatetimeIndex, merge
-# --------------------------------
 
-import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-import numpy  # noqa
 
+def bollinger_bands(stock_price, window_size, num_of_std):
+    rolling_mean = stock_price.rolling(window=window_size).mean()
+    rolling_std  = stock_price.rolling(window=window_size).std()
+    lower_band = rolling_mean - (rolling_std * num_of_std)
+
+    return rolling_mean, lower_band
 
 class BinHV45(IStrategy):
-    """
-
-        strategy sponsored by user BinH from slack
-
-    """
-
     minimal_roi = {
-        "0": 1
+        "0": 0.0125
     }
-    stoploss = -0.50
+
+    stoploss = -0.05
     ticker_interval = '5m'
+
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
-        dataframe['rsi'] = numpy.nan_to_num(ta.RSI(dataframe, timeperiod=5))
-        rsiframe = DataFrame(dataframe['rsi']).rename(columns={'rsi': 'close'})
-        dataframe['emarsi'] = numpy.nan_to_num(ta.EMA(rsiframe, timeperiod=5))
-        dataframe['adx'] = numpy.nan_to_num(ta.ADX(dataframe))
-        dataframe['minusdi'] = numpy.nan_to_num(ta.MINUS_DI(dataframe))
-        minusdiframe = DataFrame(dataframe['minusdi']).rename(columns={'minusdi': 'close'})
-        dataframe['minusdiema'] = numpy.nan_to_num(ta.EMA(minusdiframe, timeperiod=25))
-        dataframe['plusdi'] = numpy.nan_to_num(ta.PLUS_DI(dataframe))
-        plusdiframe = DataFrame(dataframe['plusdi']).rename(columns={'plusdi': 'close'})
-        dataframe['plusdiema'] = numpy.nan_to_num(ta.EMA(plusdiframe, timeperiod=5))
-        dataframe['lowsma'] = numpy.nan_to_num(ta.EMA(dataframe, timeperiod=60))
-        dataframe['highsma'] = numpy.nan_to_num(ta.EMA(dataframe, timeperiod=120))
-        dataframe['fastsma'] = numpy.nan_to_num(ta.SMA(dataframe, timeperiod=120))
-        dataframe['slowsma'] = numpy.nan_to_num(ta.SMA(dataframe, timeperiod=240))
-        dataframe['bigup'] = dataframe['fastsma'].gt(dataframe['slowsma']) & ((dataframe['fastsma'] - dataframe['slowsma']) > dataframe['close'] / 300)
-        dataframe['bigdown'] = ~dataframe['bigup']
-        dataframe['trend'] = dataframe['fastsma'] - dataframe['slowsma']
-        dataframe['preparechangetrend'] = dataframe['trend'].gt(dataframe['trend'].shift())
-        dataframe['preparechangetrendconfirm'] = dataframe['preparechangetrend'] & dataframe['trend'].shift().gt(dataframe['trend'].shift(2))
-        dataframe['continueup'] = dataframe['slowsma'].gt(dataframe['slowsma'].shift()) & dataframe['slowsma'].shift().gt(dataframe['slowsma'].shift(2))
-        dataframe['delta'] = dataframe['fastsma'] - dataframe['fastsma'].shift()
-        dataframe['slowingdown'] = dataframe['delta'].lt(dataframe['delta'].shift())
+        mid, lower = bollinger_bands(dataframe['close'], window_size=40, num_of_std=2)
+        dataframe['mid'] = np.nan_to_num(mid)
+        dataframe['lower'] = np.nan_to_num(lower)
+        dataframe['bbdelta'] = (dataframe['mid'] - dataframe['lower']).abs()
+        dataframe['pricedelta'] = (dataframe['open'] - dataframe['close']).abs()
+        dataframe['closedelta'] = (dataframe['close'] - dataframe['close'].shift()).abs()
+        dataframe['tail'] = (dataframe['close'] - dataframe['low']).abs()
         return dataframe
+
     def populate_buy_trend(self, dataframe: DataFrame) -> DataFrame:
         dataframe.loc[
-            dataframe['slowsma'].gt(0) &
-            dataframe['close'].lt(dataframe['highsma']) &
-            dataframe['close'].lt(dataframe['lowsma']) &
-            dataframe['minusdi'].gt(dataframe['minusdiema']) &
-            dataframe['rsi'].ge(dataframe['rsi'].shift()) &
             (
-              (
-                ~dataframe['preparechangetrend'] &
-                ~dataframe['continueup'] &
-                dataframe['adx'].gt(25) &
-                dataframe['bigdown'] &
-                dataframe['emarsi'].le(20)
-              ) |
-              (
-                ~dataframe['preparechangetrend'] &
-                dataframe['continueup'] &
-                dataframe['adx'].gt(30) &
-                dataframe['bigdown'] &
-                dataframe['emarsi'].le(20)
-              ) |
-              (
-                ~dataframe['continueup'] &
-                dataframe['adx'].gt(35) &
-                dataframe['bigup'] &
-                dataframe['emarsi'].le(20)
-              ) |
-              (
-                dataframe['continueup'] &
-                dataframe['adx'].gt(30) &
-                dataframe['bigup'] &
-                dataframe['emarsi'].le(25)
-              )
+                dataframe['lower'].shift().gt(0) &
+                dataframe['bbdelta'].gt(dataframe['close'] * 0.008) &
+                dataframe['closedelta'].gt(dataframe['close'] * 0.0175) &
+                dataframe['tail'].lt(dataframe['bbdelta'] * 0.25) &
+                dataframe['close'].lt(dataframe['lower'].shift()) &
+                dataframe['close'].le(dataframe['close'].shift())
             ),
             'buy'] = 1
         return dataframe
+
     def populate_sell_trend(self, dataframe: DataFrame) -> DataFrame:
-        buyframe = dataframe[dataframe['buy'] == 1].tail(1)
-        if len(buyframe) == 0:
-          dataframe.loc[[False], 'sell'] = 0
-          return dataframe
-        trend = buyframe.iloc[0]['trend']
-        bigup = buyframe.iloc[0]['bigup']
-        bigdown = buyframe.iloc[0]['bigdown']
-        price = buyframe.iloc[0]['close']
-        dataframe.loc[
-            (
-              (
-                bigup &
-                ~dataframe['preparechangetrendconfirm'] &
-                ~dataframe['continueup'] &
-                (dataframe['close'].gt(dataframe['lowsma']) | dataframe['close'].gt(dataframe['highsma'])) &
-                dataframe['highsma'].gt(0) &
-                (dataframe['bigdown'] | dataframe['trend'].lt(trend))
-              ) |
-              (
-                bigdown &
-                ~dataframe['preparechangetrendconfirm'] &
-                ~dataframe['continueup'] &
-                dataframe['close'].gt(dataframe['highsma']) &
-                dataframe['highsma'].gt(0) &
-                (dataframe['emarsi'].ge(75) | dataframe['close'].gt(dataframe['slowsma'])) &
-                (dataframe['bigdown'] | dataframe['trend'].lt(trend))
-              ) |
-              (
-                ~dataframe['preparechangetrendconfirm'] &
-                dataframe['close'].gt(dataframe['highsma']) &
-                dataframe['highsma'].gt(0) &
-                dataframe['adx'].gt(30) &
-                dataframe['emarsi'].ge(80) &
-                dataframe['bigup']
-              ) |
-              (
-                dataframe['preparechangetrendconfirm'] &
-                ~dataframe['continueup'] &
-                dataframe['slowingdown'] &
-                dataframe['emarsi'].ge(75) &
-                dataframe['slowsma'].gt(0)
-              ) |
-              (
-                dataframe['preparechangetrendconfirm'] &
-                dataframe['minusdi'].lt(dataframe['plusdi']) &
-                dataframe['close'].gt(dataframe['lowsma']) &
-                dataframe['slowsma'].gt(0)
-              )
-            ),
-            'sell'] = 1
+        """
+        no sell signal
+        """
         return dataframe
