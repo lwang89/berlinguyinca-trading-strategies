@@ -29,7 +29,7 @@ class BinHV45(IStrategy):
         "0": 1
     }
     stoploss = -0.50
-    ticker_interval = 5
+    ticker_interval = '5m'
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
         dataframe['rsi'] = numpy.nan_to_num(ta.RSI(dataframe, timeperiod=5))
         rsiframe = DataFrame(dataframe['rsi']).rename(columns={'rsi': 'close'})
