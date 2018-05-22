@@ -328,7 +328,7 @@ class StrategyHelper:
             'low': 'min',
             'close': 'last'
         }
-        df = df.resample(str(int(interval[:-1]) * factor) + 'min', how=ohlc_dict)
+        df = df.resample(str(int(interval[:-1]) * factor) + 'min', plotoschow=ohlc_dict)
 
         df['resample_sma'] = ta.SMA(df, timeperiod=25, price='close')
         df = df.drop(columns=['open', 'high', 'low', 'close'])

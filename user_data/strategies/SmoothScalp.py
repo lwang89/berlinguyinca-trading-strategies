@@ -33,7 +33,7 @@ class SmoothScalp(IStrategy):
     # This attribute will be overridden if the config file contains "stoploss"
     # should not be below 3% loss
 
-    stoploss = -0.04
+    stoploss = -0.5
     # Optimal ticker interval for the strategy
     # the shorter the better
     ticker_interval = '1m'

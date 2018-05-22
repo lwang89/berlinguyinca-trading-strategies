@@ -24,7 +24,7 @@ class BinHV45(IStrategy):
     }
 
     stoploss = -0.05
-    ticker_interval = '5m'
+    ticker_interval = '1m'
 
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
         mid, lower = bollinger_bands(dataframe['close'], window_size=40, num_of_std=2)

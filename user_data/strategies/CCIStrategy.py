@@ -14,7 +14,7 @@ class CCIStrategy(IStrategy):
     # Minimal ROI designed for the strategy.
     # This attribute will be overridden if the config file contains "minimal_roi"
     minimal_roi = {
-        "0": 0.01
+        "0": 0.1
     }
 
     # Optimal stoploss designed for the strategy
@@ -31,6 +31,8 @@ class CCIStrategy(IStrategy):
         dataframe['cci_one'] = ta.CCI(dataframe, timeperiod=170)
         dataframe['cci_two'] = ta.CCI(dataframe, timeperiod=34)
         dataframe['rsi'] = ta.RSI(dataframe)
+        dataframe['mfi'] = ta.MFI(dataframe)
+
         dataframe['cmf'] = self.chaikin_mf(dataframe)
 
         # required for graphing
@@ -49,11 +51,14 @@ class CCIStrategy(IStrategy):
         """
         dataframe.loc[
             (
-                    (dataframe['cci_one'] < 0)
-                    & (qtpylib.crossed_above(dataframe['cci_two'], dataframe['cci_one']))
+                    (dataframe['cci_one'] < -100)
+                    & (dataframe['cci_two'] < -100)
                     & (dataframe['cmf'] < -0.1)
-                    # sma must move up over n ticks
-                    & (dataframe['resample_sma'].shift(10) < dataframe['resample_sma'])
+                    & (dataframe['mfi'] < 25)
+
+                    # insurance
+                    & (dataframe['resample_medium'] > dataframe['resample_short'])
+                    & (dataframe['resample_long'] < dataframe['close'])
 
             ),
             'buy'] = 1
@@ -71,6 +76,9 @@ class CCIStrategy(IStrategy):
                     (dataframe['cci_one'] > 100)
                     & (dataframe['cci_two'] > 100)
                     & (dataframe['cmf'] > 0.3)
+                    & (dataframe['resample_sma'] < dataframe['resample_medium'])
+                    & (dataframe['resample_medium'] < dataframe['resample_short'])
+
             ),
             'sell'] = 1
         return dataframe
@@ -100,9 +108,11 @@ class CCIStrategy(IStrategy):
             'low': 'min',
             'close': 'last'
         }
-        df = df.resample(str(int(interval[:-1]) * factor) + 'min', how=ohlc_dict).dropna(
-            how='any')
+        df = df.resample(str(int(interval[:-1]) * factor) + 'min', how=ohlc_dict)
         df['resample_sma'] = ta.SMA(df, timeperiod=100, price='close')
+        df['resample_medium'] = ta.SMA(df, timeperiod=50, price='close')
+        df['resample_short'] = ta.SMA(df, timeperiod=25, price='close')
+        df['resample_long'] = ta.SMA(df, timeperiod=200, price='close')
         df = df.drop(columns=['open', 'high', 'low', 'close'])
         df = df.resample(interval[:-1] + 'min')
         df = df.interpolate(method='time')
