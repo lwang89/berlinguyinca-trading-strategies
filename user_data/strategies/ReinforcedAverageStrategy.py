@@ -89,8 +89,7 @@ class ReinforcedAverageStrategy(IStrategy):
             'low': 'min',
             'close': 'last'
         }
-        df = df.resample(str(int(interval[:-1]) * factor) + 'min', how=ohlc_dict).dropna(
-            how='any')
+        df = df.resample(str(int(interval[:-1]) * factor) + 'min').agg(ohlc_dict)
         df['resample_sma'] = ta.SMA(df, timeperiod=50, price='close')
         df = df.drop(columns=['open', 'high', 'low', 'close'])
         df = df.resample(interval[:-1] + 'min')

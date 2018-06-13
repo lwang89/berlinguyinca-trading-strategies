@@ -108,7 +108,7 @@ class CCIStrategy(IStrategy):
             'low': 'min',
             'close': 'last'
         }
-        df = df.resample(str(int(interval[:-1]) * factor) + 'min', how=ohlc_dict)
+        df = df.resample(str(int(interval[:-1]) * factor) + 'min').agg(ohlc_dict)
         df['resample_sma'] = ta.SMA(df, timeperiod=100, price='close')
         df['resample_medium'] = ta.SMA(df, timeperiod=50, price='close')
         df['resample_short'] = ta.SMA(df, timeperiod=25, price='close')
