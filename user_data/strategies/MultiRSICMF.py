@@ -5,9 +5,11 @@ from pandas import DataFrame
 from technical.util import resample_to_interval
 from technical.util import resampled_merge
 import talib.abstract as ta
+from technical.indicators import cmf
+from technical.indicators import osc
 
 
-class MultiRSI(IStrategy):
+class MultiRSICMF(IStrategy):
     """
 
     author@: Gert Wohlgemuth
@@ -23,7 +25,7 @@ class MultiRSI(IStrategy):
     stoploss = -0.05
 
     # Optimal ticker interval for the strategy
-    ticker_interval = '5m'
+    ticker_interval = '15m'
 
     def get_ticker_indicator(self):
         return int(self.ticker_interval[:-1])
@@ -39,6 +41,11 @@ class MultiRSI(IStrategy):
         # compute our RSI's
         dataframe_short['rsi'] = ta.RSI(dataframe_short, timeperiod=14)
         dataframe_long['rsi'] = ta.RSI(dataframe_long, timeperiod=14)
+        dataframe_short['cmf'] = cmf(dataframe_short, 14)
+        dataframe_long['cmf'] = cmf(dataframe_long, 14)
+
+        dataframe_short['osc'] = osc(dataframe_short, 14)
+        dataframe_long['osc'] = osc(dataframe_long, 14)
 
         # merge dataframe back together
         dataframe = resampled_merge(dataframe, dataframe_short)
@@ -46,6 +53,7 @@ class MultiRSI(IStrategy):
 
         dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
 
+        # fill NA values with previes
         dataframe.fillna(method='ffill', inplace=True)
 
         return dataframe
@@ -54,8 +62,9 @@ class MultiRSI(IStrategy):
         dataframe.loc[
             (
                 # must be bearish
-                (dataframe['sma5'] >= dataframe['sma200']) &
-                (dataframe['rsi'] < (dataframe['resample_{}_rsi'.format(self.get_ticker_indicator() * 8)] - 20))
+                    (dataframe['sma5'] >= dataframe['sma200']) &
+                    (dataframe['rsi'] < (dataframe['resample_{}_rsi'.format(self.get_ticker_indicator() * 8)] - 20)) &
+                    (dataframe['resample_{}_cmf'.format(self.get_ticker_indicator() * 8)] > 0)
             ),
             'buy'] = 1
         return dataframe
@@ -63,8 +72,8 @@ class MultiRSI(IStrategy):
     def populate_sell_trend(self, dataframe: DataFrame) -> DataFrame:
         dataframe.loc[
             (
-                (dataframe['rsi'] > dataframe['resample_{}_rsi'.format(self.get_ticker_indicator()*2)]) &
-                (dataframe['rsi'] > dataframe['resample_{}_rsi'.format(self.get_ticker_indicator()*8)])
+                    (dataframe['rsi'] > dataframe['resample_{}_rsi'.format(self.get_ticker_indicator() * 2)]) &
+                    (dataframe['rsi'] > dataframe['resample_{}_rsi'.format(self.get_ticker_indicator() * 8)])
             ),
             'sell'] = 1
         return dataframe
