@@ -2,11 +2,7 @@
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
 # --------------------------------
-from technical.util import resample_to_interval
-from technical.util import resampled_merge
 import talib.abstract as ta
-from technical.indicators import cmf
-from technical.indicators import osc
 
 
 class MultiRSICMF(IStrategy):
@@ -25,12 +21,21 @@ class MultiRSICMF(IStrategy):
     stoploss = -0.05
 
     # Optimal ticker interval for the strategy
-    ticker_interval = '15m'
+    ticker_interval = '5m'
 
     def get_ticker_indicator(self):
         return int(self.ticker_interval[:-1])
 
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
+
+        # otherwise freqshow import won't work
+        # since lambda is too large with all the dependencies
+
+        from technical.util import resample_to_interval
+        from technical.util import resampled_merge
+        from technical.indicators import cmf
+        from technical.indicators import osc
+
         dataframe['sma5'] = ta.SMA(dataframe, timeperiod=5)
         dataframe['sma200'] = ta.SMA(dataframe, timeperiod=200)
 

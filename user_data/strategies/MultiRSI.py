@@ -2,8 +2,6 @@
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
 # --------------------------------
-from technical.util import resample_to_interval
-from technical.util import resampled_merge
 import talib.abstract as ta
 
 
@@ -29,6 +27,9 @@ class MultiRSI(IStrategy):
         return int(self.ticker_interval[:-1])
 
     def populate_indicators(self, dataframe: DataFrame) -> DataFrame:
+        from technical.util import resample_to_interval
+        from technical.util import resampled_merge
+
         dataframe['sma5'] = ta.SMA(dataframe, timeperiod=5)
         dataframe['sma200'] = ta.SMA(dataframe, timeperiod=200)
 
